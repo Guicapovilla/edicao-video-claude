@@ -2517,7 +2517,7 @@ function _applyStandaloneDashboardState(filaComp, pendsComp) {
   var ban = document.getElementById('standalone-banner');
   if (ban) {
     ban.style.display = 'block';
-    ban.textContent = 'Pré-visualização local (lê fila_producao.json / historico.json na pasta do servidor). Para gravar: streamlit run app.py';
+    ban.textContent = 'Servidor estático: lê fila/histórico/*.json ao lado da URL. Produção gravável com streamlit run app.py (youtube-analytics).';
   }
   _STATE = {
     dados: {
