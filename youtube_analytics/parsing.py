@@ -4,6 +4,7 @@
 def parsear_dados(texto):
     dados = {}
     secao = ""
+    resumo_7d = {}
     videos_views, videos_receita, receita_diaria = [], [], []
     for linha in texto.split("\n"):
         linha = linha.strip()
@@ -11,6 +12,11 @@ def parsear_dados(texto):
             continue
         if linha.startswith("==="):
             secao = linha
+            continue
+        if "RESUMO ANALYTICS 7D" in secao:
+            if ":" in linha:
+                k, v = linha.split(":", 1)
+                resumo_7d[k.strip()] = v.strip()
             continue
         if "DADOS DO CANAL" in secao or "ANALYTICS 28 DIAS" in secao:
             if ":" in linha:
@@ -82,4 +88,6 @@ def parsear_dados(texto):
     dados["videos_views"] = videos_views
     dados["videos_receita"] = videos_receita
     dados["receita_diaria"] = receita_diaria
+    if resumo_7d:
+        dados["resumo_7d"] = resumo_7d
     return dados

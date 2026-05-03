@@ -806,6 +806,90 @@ main {
   white-space: nowrap;
 }
 
+/* ═══ RESUMO YT (aba Metas) ═══ */
+.yt-resumo-wrap {
+  background: linear-gradient(180deg, #232326 0%, #1a1a1d 100%);
+  border: 1px solid #2e2e32;
+  border-radius: var(--radius);
+  padding: 18px 20px 14px;
+  margin-bottom: 14px;
+}
+.yt-resumo-headline {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.35;
+  margin-bottom: 18px;
+  max-width: 920px;
+}
+.yt-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 980px) {
+  .yt-resumo-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.yt-resumo-cell { min-width: 0; }
+.yt-resumo-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.yt-resumo-label {
+  font-size: 0.62rem;
+  color: var(--text-3);
+  text-transform: none;
+}
+.yt-resumo-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.02em;
+}
+.yt-trend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  line-height: 1;
+}
+.yt-trend-up { background: rgba(74,222,128,0.18); color: var(--green); }
+.yt-trend-down { background: rgba(161,161,170,0.15); color: var(--text-3); }
+.yt-trend-flat { background: rgba(74,222,128,0.15); color: var(--green); font-size: 0.55rem; }
+.yt-resumo-sub {
+  font-size: 0.58rem;
+  color: var(--text-3);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+.yt-resumo-chart-h {
+  font-size: 0.58rem;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+#yt-resumo-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  margin-top: 4px;
+}
+#yt-resumo-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+
 /* ═══ LEARNING ═══ */
 .accuracy-big {
   font-family: var(--font-display);
@@ -1325,12 +1409,6 @@ main {
     </div>
   </details>
 
-  <details class="collapse-panel s">
-    <summary>Vídeos publicados e vinculação a sugestões</summary>
-    <div class="collapse-panel-body">
-      <div class="box" id="video-list-box"></div>
-    </div>
-  </details>
 </section>
 
 <!-- ════════════════════════════════════════════
@@ -1340,6 +1418,7 @@ main {
   <div class="sh s"><h1>Metas & Projeções</h1><p>Acompanhamento anual e trimestral</p></div>
 
   <div class="box s" id="meta-anual-box"></div>
+  <div class="s" id="youtube-resumo-metas"></div>
   <div class="box s" id="meta-tri-box"></div>
   <div class="cols s">
     <div class="box" id="accuracy-box"></div>
@@ -1540,8 +1619,7 @@ function _renderAll() {
   renderProximosConteudos(fila);
   renderKanban(fila);
   renderPendingBox(pends, rp);
-  renderProducaoVideoList(fila);
-  renderMetas(metas, hlinks);
+  renderMetas(metas, hlinks, d);
   renderConfig(cfg, concs);
   _wireAddToQueue();
   _wireTemaLivre();
@@ -1886,28 +1964,6 @@ function _genScript() {
   window._stAction('generate_script',{tema:tema});
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// RENDER — PRODUÇÃO: vídeos publicados
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderProducaoVideoList(fila) {
-  var el=document.getElementById('video-list-box'); if(!el) return;
-  var pub=fila.filter(function(f){return f.status==='publicado'||f.status==='concluido';});
-  if(!pub.length){el.innerHTML='<div class="box-title">Vídeos publicados</div><div style="color:var(--text-3);font-size:0.72rem;">Nenhum vídeo publicado na fila ainda.</div>';return;}
-  el.innerHTML='<div class="box-title">Vídeos publicados — vincule ao conteúdo ou desvincule quando necessário</div>'
-    +pub.map(function(v){
-      var gi=fila.indexOf(v);
-      var tc=v.funil==='fundo'?'tag-fundo':v.funil==='meio'?'tag-meio':'tag-topo';
-      var linked=!!v.is_linked_real;
-      var action=linked
-        ? '<button class="btn btn-sm vlist-action vlist-action-linked" title="Clique para desvincular" onclick="_confirmUnlinkVideo('+gi+')">Vinculado</button>'
-        : '<button class="btn btn-sm btn-ghost vlist-action" title="Vincular conteúdo" onclick="_openLinkModal('+gi+')">Linkar</button>';
-      return '<div class="vlist-item"><span class="funil-tag '+tc+'">'+esc(v.funil||'')+'</span>'
-        +'<span class="vlist-title">'+esc((v.titulo||'').slice(0,55))+'</span>'
-        +'<span style="font-size:0.62rem;color:var(--text-3);">RPM R$'+Number(v.rpm||0).toFixed(0)+'</span>'
-        +action+'</div>';
-    }).join('');
-}
-
 function _parseFilaDate(raw) {
   if (!raw) return null;
   var txt = String(raw).trim();
@@ -2067,12 +2123,169 @@ function _wireGenLote() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RESUMO YOUTUBE (aba Metas)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fmtYtHeadlineViews(v) {
+  var n = Number(v) || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + ' mi';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace('.', ',') + ' mil';
+  return n.toLocaleString('pt-BR');
+}
+
+function _ytTrendIcon(tr) {
+  if (tr === 'up')
+    return '<span class="yt-trend yt-trend-up">↑</span>';
+  if (tr === 'down')
+    return '<span class="yt-trend yt-trend-down">↓</span>';
+  return '<span class="yt-trend yt-trend-flat">✓</span>';
+}
+
+function _fmtYtKpiValue(row) {
+  var id = row.id;
+  var x = Number(row.value);
+  if (!isFinite(x)) return '—';
+  if (id === 'views') return _fmtYtHeadlineViews(x);
+  if (id === 'horas') return x.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (id === 'inscritos') {
+    if (x > 0) return '+' + String(Math.round(x));
+    return String(Math.round(x));
+  }
+  if (id === 'receita')
+    return 'R$ ' + x.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return String(x);
+}
+
+function _ytRedrawLineChart(canvas, series) {
+  if (!canvas) return;
+  var raw = Array.isArray(series) ? series.slice() : [];
+  if (!raw.length) {
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  if (raw.length === 1) raw.push({ d: raw[0].d, v: raw[0].v });
+  var vals = raw.map(function (p) {
+    return Number(p.v) || 0;
+  });
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var W = canvas.parentElement ? canvas.parentElement.offsetWidth : 400;
+  var H = 120;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  var padL = 4, padR = 28, padT = 10, padB = 22;
+  var iw = W - padL - padR, ih = H - padT - padB;
+  var vmin = Math.min.apply(null, vals) * 0.92,
+    vmax = Math.max.apply(null, vals) * 1.08 || 1;
+  if (vmax <= vmin) vmax = vmin + 1;
+  var line = '#7eb8ff';
+  ctx.fillStyle = 'rgba(126,184,255,0.07)';
+  ctx.strokeStyle = 'rgba(148,148,160,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT + ih * 0.5);
+  ctx.lineTo(W - padR, padT + ih * 0.5);
+  ctx.stroke();
+  var n = vals.length - 1;
+  var pts = vals.map(function (v, i) {
+    var x = padL + (iw * i) / n;
+    var y = padT + ih - ((v - vmin) / (vmax - vmin)) * ih;
+    return { x: x, y: y, vall: v };
+  });
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, H - padB);
+  ctx.lineTo(pts[0].x, pts[0].y);
+  for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y);
+  ctx.lineTo(pts[pts.length - 1].x, H - padB);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(126,184,255,0.12)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 2;
+  pts.forEach(function (p, i) {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(245,245,250,0.35)';
+  ctx.font = '9px Outfit, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(String(Math.round(vmax)), W - 2, padT + 8);
+  ctx.fillText('0', W - 2, padT + ih + 12);
+}
+
+function renderYoutubeResumoMetas(dados) {
+  var el = document.getElementById('youtube-resumo-metas');
+  if (!el) return;
+  var y = dados.youtube_resumo_7d;
+  if (!y) {
+    el.innerHTML =
+      '<div class="box s" style="border-style:dashed;"><div class="box-title">Resumo últimos 7 dias · YouTube</div>'
+      + '<div style="color:var(--text-3);font-size:0.72rem;line-height:1.45;">Aparece aqui quando o <code>dados.txt</code> gerado pela coleta incluir a seção <code>RESUMO ANALYTICS 7D vs 7D</code> (rode o pipeline).</div></div>';
+    return;
+  }
+  var headlineN = Number(y.headline_views) || 0;
+  var head =
+    'Seu canal teve <strong>' +
+    esc(_fmtYtHeadlineViews(headlineN)) +
+    '</strong> visualizações nos últimos 7 dias';
+  var kpis = y.kpis || [];
+  var cells = kpis.map(function (row) {
+    return (
+      '<div class="yt-resumo-cell">'
+      + '<div class="yt-resumo-label-row"><span class="yt-resumo-label">' +
+      esc(row.label) +
+      '</span></div>'
+      + '<div class="yt-resumo-value">' +
+      esc(_fmtYtKpiValue(row)) +
+      '' +
+      _ytTrendIcon(row.trend) +
+      '</div>'
+      + '<div class="yt-resumo-sub">' +
+      esc(row.sub || '') +
+      '</div></div>'
+    );
+  }).join('');
+  var ser = Array.isArray(y.series) ? y.series : [];
+  var chartBlk =
+    ser.length >= 2
+      ? '<div class="yt-resumo-chart-h">Visualizações por dia · janela atual</div>'
+        + '<div id="yt-resumo-canvas-wrap"><canvas id="yt-resumo-line"></canvas></div>'
+      : '';
+  el.innerHTML =
+    '<div class="yt-resumo-wrap">'
+    + '<div class="yt-resumo-headline">' +
+    head +
+    '</div>'
+    + '<div class="yt-resumo-grid">' +
+    cells +
+    '</div>'
+    + chartBlk +
+    '</div>';
+  if (ser.length >= 2) {
+    requestAnimationFrame(function () {
+      _ytRedrawLineChart(document.getElementById('yt-resumo-line'), ser);
+    });
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // RENDER — METAS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderMetas(m, hlinks) {
-  var gc=function(p){return p>=70?'var(--green)':p>=40?'var(--yellow)':'var(--red)';};
-  var anual=m.anual||{}, ano=m.ano||{}, q2=m.q2||{}, atual=m.atual||{};
-  var padroes=m.padroes||[], accuracy=m.accuracy||{};
+function renderMetas(m, hlinks, dados) {
+  renderYoutubeResumoMetas(dados || {});
+  var gc = function (p) {
+    return p >= 70 ? 'var(--green)' : p >= 40 ? 'var(--yellow)' : 'var(--red)';
+  };
+  var anual = m.anual || {},
+    ano = m.ano || {},
+    q2 = m.q2 || {},
+    atual = m.atual || {};
+  var padroes = m.padroes || [],
+    accuracy = m.accuracy || {};
 
   var el_ma=document.getElementById('meta-anual-box');
   if(el_ma){
@@ -2309,7 +2522,25 @@ function _applyStandaloneDashboardState(filaComp, pendsComp) {
       top_rpm: [],
       receita_diaria: [],
       receita_console: [],
-      comentarios: []
+      comentarios: [],
+      youtube_resumo_7d: {
+        headline_views: 9024,
+        series: [
+          { d: '2026-04-26', v: 2200 },
+          { d: '2026-04-27', v: 1950 },
+          { d: '2026-04-28', v: 1800 },
+          { d: '2026-04-29', v: 1700 },
+          { d: '2026-04-30', v: 1720 },
+          { d: '2026-05-01', v: 1600 },
+          { d: '2026-05-02', v: 1054 },
+        ],
+        kpis: [
+          { id: 'views', label: 'Visualizações', value: 9024, sub: 'O mesmo de 7 dias atrás', trend: 'flat' },
+          { id: 'horas', label: 'Tempo de exibição (horas)', value: 502.5, sub: '19% a mais do que há 7 dias', trend: 'up' },
+          { id: 'inscritos', label: 'Inscritos', value: 64, sub: '7% a menos do que há 7 dias', trend: 'down' },
+          { id: 'receita', label: 'Receita estimada', value: 1756.71, sub: '—', trend: 'flat' },
+        ],
+      },
     },
     fila: filaComp,
     concorrentes: [],
@@ -2340,8 +2571,8 @@ function _applyStandaloneDashboardState(filaComp, pendsComp) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 document.addEventListener('DOMContentLoaded', function() {
   var placeholderIds = ['metrics','top-rpm-box','receita-console-box','receita-chart-box',
-    'insights-box','producao-hero-area','proximos-conteudos','kanban','pending-box','video-list-box',
-    'meta-anual-box','meta-tri-box','accuracy-box','patterns-box','links-box',
+    'insights-box','producao-hero-area','proximos-conteudos','kanban','pending-box',
+    'meta-anual-box','youtube-resumo-metas','meta-tri-box','accuracy-box','patterns-box','links-box',
     'token-box','files-status-box','conc-mgmt-box'];
 
   function placeholders() {

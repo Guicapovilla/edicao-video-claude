@@ -1,9 +1,130 @@
+import json
 from datetime import datetime, timedelta, date as _date
 
 
 def _q2_start(hoje):
     q_start_month = ((hoje.month - 1) // 3) * 3 + 1
     return _date(hoje.year, q_start_month, 1)
+
+
+def _analytics_period_totals(analytics, channel_id: str, start: _date, end: _date):
+    rows = (
+        analytics.reports()
+        .query(
+            ids=f"channel=={channel_id}",
+            startDate=str(start),
+            endDate=str(end),
+            metrics="views,estimatedMinutesWatched,subscribersGained,estimatedRevenue",
+        )
+        .execute()
+        .get("rows")
+        or []
+    )
+    if not rows:
+        return 0, 0.0, 0, 0.0
+    r = rows[0]
+    return int(r[0] or 0), float(r[1] or 0), int(r[2] or 0), float(r[3] or 0)
+
+
+def _analytics_daily_views(analytics, channel_id: str, start: _date, end: _date):
+    rows = (
+        analytics.reports()
+        .query(
+            ids=f"channel=={channel_id}",
+            startDate=str(start),
+            endDate=str(end),
+            metrics="views",
+            dimensions="day",
+            sort="day",
+        )
+        .execute()
+        .get("rows")
+        or []
+    )
+    return [(str(row[0]), int(row[1] or 0)) for row in rows]
+
+
+def _linhas_resumo_7_vs_7(analytics, cid, usd: float, hoje: _date):
+    """Últimos 7 dias (inclusive hoje) vs. os 7 dias anteriores, + série diária de views."""
+    start_cur = hoje - timedelta(days=6)
+    end_ant = hoje - timedelta(days=7)
+    start_ant = hoje - timedelta(days=13)
+
+    try:
+        v_cur, min_cur, sub_cur, rev_cur_usd = _analytics_period_totals(analytics, cid, start_cur, end_cur)
+        v_ant, min_ant, sub_ant, rev_ant_usd = _analytics_period_totals(analytics, cid, start_ant, end_ant)
+    except Exception:
+        z = "O mesmo de 7 dias atrás"
+        return [
+            "",
+            "=== RESUMO ANALYTICS 7D vs 7D ===",
+            "r7_views_atual: 0",
+            "r7_views_ant: 0",
+            "r7_minutos_atual: 0",
+            "r7_minutos_ant: 0",
+            "r7_inscritos_atual: 0",
+            "r7_inscritos_ant: 0",
+            "r7_receita_brl_atual: 0.00",
+            "r7_receita_brl_ant: 0.00",
+            "r7_horas_atual: 0.0",
+            "r7_horas_ant: 0.0",
+            f"r7_msg_views: {z}",
+            f"r7_msg_horas: {z}",
+            f"r7_msg_inscritos: {z}",
+            f"r7_msg_receita: {z}",
+            "r7_series_views_json: []",
+            "",
+        ]
+
+    serie = []
+    try:
+        serie = _analytics_daily_views(analytics, cid, start_cur, end_cur)
+    except Exception:
+        serie = []
+
+    def _pct_msg(cur_num: float, prev_num: float) -> str:
+        if prev_num == 0 and cur_num == 0:
+            return "Sem dados nos dois períodos"
+        if prev_num == 0:
+            return "Comparação indisponível (período anterior zerado)"
+        delta = (cur_num - prev_num) / prev_num * 100
+        arred = round(abs(delta))
+        if arred == 0:
+            return "O mesmo de 7 dias atrás"
+        if delta > 0:
+            return f"{arred}% a mais do que há 7 dias"
+        return f"{arred}% a menos do que há 7 dias"
+
+    horas_cur = min_cur / 60.0
+    horas_ant = min_ant / 60.0
+
+    msg_views = _pct_msg(float(v_cur), float(v_ant))
+    msg_horas = _pct_msg(horas_cur, horas_ant)
+    msg_subs = _pct_msg(float(sub_cur), float(sub_ant))
+    msg_rev = _pct_msg(rev_cur_usd * usd, rev_ant_usd * usd)
+
+    series_payload = [{"d": d, "v": v} for d, v in serie]
+
+    return [
+        "",
+        "=== RESUMO ANALYTICS 7D vs 7D ===",
+        f"r7_views_atual: {v_cur}",
+        f"r7_views_ant: {v_ant}",
+        f"r7_minutos_atual: {round(min_cur)}",
+        f"r7_minutos_ant: {round(min_ant)}",
+        f"r7_inscritos_atual: {sub_cur}",
+        f"r7_inscritos_ant: {sub_ant}",
+        f"r7_receita_brl_atual: {rev_cur_usd * usd:.2f}",
+        f"r7_receita_brl_ant: {rev_ant_usd * usd:.2f}",
+        f"r7_horas_atual: {horas_cur:.2f}",
+        f"r7_horas_ant: {horas_ant:.2f}",
+        f"r7_msg_views: {msg_views}",
+        f"r7_msg_horas: {msg_horas}",
+        f"r7_msg_inscritos: {msg_subs}",
+        f"r7_msg_receita: {msg_rev}",
+        f"r7_series_views_json: {json.dumps(series_payload, ensure_ascii=False)}",
+        "",
+    ]
 
 
 def coletar_canal(youtube, analytics, usd):
@@ -105,6 +226,7 @@ def coletar_canal(youtube, analytics, usd):
         f"Novos inscritos: {total_subs}",
         f"Receita total (BRL): R$ {total_rev*usd:.2f}",
         '',
+        *_linhas_resumo_7_vs_7(analytics, cid, usd, hoje),
         '=== TOP 10 VIDEOS POR VIEWS ===',
         *top_views[:10],
         '',
