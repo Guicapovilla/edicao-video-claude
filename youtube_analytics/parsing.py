@@ -21,7 +21,13 @@ def parsear_dados(texto):
         if "DADOS DO CANAL" in secao or "ANALYTICS 28 DIAS" in secao:
             if ":" in linha:
                 k, v = linha.split(":", 1)
-                dados[k.strip()] = v.strip()
+                k = k.strip()
+                v = v.strip()
+                if "DADOS DO CANAL" in secao and k == "Views totais":
+                    dados["Views_totais_canal"] = v
+                if "ANALYTICS 28 DIAS" in secao and k == "Views totais":
+                    dados["Views_28d"] = v
+                dados[k] = v
         elif "TOP 10 VIDEOS POR VIEWS" in secao:
             if linha and linha[0].isdigit() and "|" in linha:
                 parts = linha.split("|")

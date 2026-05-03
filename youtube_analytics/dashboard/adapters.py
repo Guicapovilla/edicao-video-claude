@@ -147,13 +147,13 @@ def dados_para_componente(dados_parsed: dict) -> dict:
             return 0.0
 
     inscritos = _int("Inscritos")
-    views_totais = _int("Views totais")
+    views_totais = _int("Views_totais_canal") or _int("Views totais")
     total_videos = _int("Total de vídeos") or _int("Total videos") or _int("Videos")
-    views_28d = _int("Views")
+    views_28d = _int("Views_28d") or _int("Views")
     horas_28d = _float("Horas assistidas")
     novos = _int("Novos inscritos")
-    receita_brl = _float("Receita BRL")
-    cotacao = _float("Cotação USD/BRL") or 5.15
+    receita_brl = _float("Receita total (BRL)") or _float("Receita BRL")
+    cotacao = _float("Cotação USD/BRL") or _float("Cotacao USD/BRL") or 5.15
 
     top_rpm = []
     for v in dados_parsed.get("videos_receita", [])[:10]:

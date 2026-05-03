@@ -2437,6 +2437,238 @@ function _fetchJsonStandalone(base, filename) {
   return fetch(url).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; });
 }
 
+function _fetchTextStandalone(base, filename) {
+  var root = String(base || '.').replace(/\/+$/, '');
+  var url = root + '/' + filename;
+  return fetch(url).then(function (r) {
+    return r.ok ? r.text() : '';
+  }).catch(function () {
+    return '';
+  });
+}
+
+function _pdInt(parsed, key) {
+  try {
+    return parseInt(String((parsed || {})[key] || '0').replace(/\./g, '').replace(',', '.').trim().split(/\s/)[0], 10) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function _pdFloat(parsed, key) {
+  try {
+    var raw = String((parsed || {})[key] || '0')
+      .replace(/R\$\s*/i, '')
+      .trim()
+      .split(/\s/)[0];
+    if (raw.indexOf(',') !== -1 && raw.indexOf('.') !== -1) raw = raw.replace(/\./g, '').replace(',', '.');
+    else raw = raw.replace(',', '.');
+    return parseFloat(raw) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function _parseDadosTxtJs(txt) {
+  var dados = {};
+  var secao = '';
+  var resumo = {};
+  var videosViews = [], videosRec = [], recDia = [];
+  var raw = String(txt || '').split(/\r?\n/);
+  var i, linha, k, v, ci, parts, p, j, dpi, item;
+  for (i = 0; i < raw.length; i++) {
+    linha = raw[i].trim();
+    if (!linha) continue;
+    if (linha.slice(0, 3) === '===') {
+      secao = linha;
+      continue;
+    }
+    if (secao.indexOf('RESUMO ANALYTICS 7D') !== -1) {
+      ci = linha.indexOf(':');
+      if (ci !== -1) resumo[linha.slice(0, ci).trim()] = linha.slice(ci + 1).trim();
+      continue;
+    }
+    if (secao.indexOf('DADOS DO CANAL') !== -1 || secao.indexOf('ANALYTICS 28 DIAS') !== -1) {
+      ci = linha.indexOf(':');
+      if (ci !== -1) {
+        k = linha.slice(0, ci).trim();
+        v = linha.slice(ci + 1).trim();
+        if (secao.indexOf('DADOS DO CANAL') !== -1 && k === 'Views totais') dados.Views_totais_canal = v;
+        if (secao.indexOf('ANALYTICS 28 DIAS') !== -1 && k === 'Views totais') dados.Views_28d = v;
+        dados[k] = v;
+      }
+      continue;
+    }
+    if (secao.indexOf('TOP 10 VIDEOS POR VIEWS') !== -1 && /^\d/.test(linha) && linha.indexOf('|') !== -1) {
+      parts = linha.split('|');
+      dpi = parts[0].indexOf('.');
+      item = { titulo: dpi !== -1 ? parts[0].slice(dpi + 1).trim() : parts[0].trim() };
+      for (j = 1; j < parts.length; j++) {
+        p = parts[j].trim();
+        if (p.indexOf('Views:') !== -1) item.views = parseInt(p.split(':')[1].replace(/,/g, '').trim(), 10);
+        else if (p.indexOf('Likes:') !== -1) item.likes = parseInt(p.split(':')[1].replace(/,/g, '').trim(), 10);
+      }
+      videosViews.push(item);
+      continue;
+    }
+    if (secao.indexOf('TOP 10 VIDEOS POR RECEITA') !== -1 && /^\d/.test(linha) && linha.indexOf('|') !== -1) {
+      parts = linha.split('|');
+      dpi = parts[0].indexOf('.');
+      item = { titulo: dpi !== -1 ? parts[0].slice(dpi + 1).trim() : parts[0].trim() };
+      for (j = 1; j < parts.length; j++) {
+        p = parts[j].trim();
+        if (p.indexOf('BRL') !== -1 && p.indexOf('R$') !== -1) {
+          ci = p.indexOf('R$');
+          item.receita = parseFloat(p.slice(ci + 1).replace(',', '.').trim());
+        } else if (p.indexOf('Views:') !== -1) item.views = parseInt(p.split(':')[1].replace(/,/g, '').trim(), 10);
+        else if (p.indexOf('RPM') !== -1 && p.indexOf('R$') !== -1) {
+          ci = p.indexOf('R$');
+          item.rpm = parseFloat(p.slice(ci + 1).replace(',', '.').trim());
+        }
+      }
+      videosRec.push(item);
+      continue;
+    }
+    if (secao.indexOf('RECEITA DIARIA') !== -1 && linha.indexOf('|') !== -1) {
+      parts = linha.split('|');
+      item = { data: parts[0].trim() };
+      for (j = 1; j < parts.length; j++) {
+        p = parts[j].trim();
+        if (p.indexOf('BRL') !== -1 && p.indexOf('R$') !== -1) {
+          ci = p.indexOf('R$');
+          item.brl = parseFloat(p.slice(ci + 1).replace(',', '.').trim());
+        }
+      }
+      recDia.push(item);
+    }
+  }
+  dados.videos_views = videosViews;
+  dados.videos_receita = videosRec;
+  dados.receita_diaria = recDia;
+  if (Object.keys(resumo).length) dados.resumo_7d = resumo;
+  return dados;
+}
+
+function _youtubeResumo7dJs(parsed) {
+  var raw = parsed.resumo_7d || {};
+  if (!raw || !Object.keys(raw).length) return null;
+  function fi(key, d) {
+    try {
+      return parseInt(String(raw[key] != null ? raw[key] : d).replace(/\./g, '').replace(',', '.').trim().split(/\s/)[0], 10) || 0;
+    } catch (e) {
+      return d || 0;
+    }
+  }
+  function ff(key, d) {
+    try {
+      return parseFloat(String(raw[key] != null ? raw[key] : d).replace(',', '.').trim()) || 0;
+    } catch (e) {
+      return d || 0;
+    }
+  }
+  var series = [];
+  try {
+    series = JSON.parse(raw.r7_series_views_json || '[]');
+    if (!Array.isArray(series)) series = [];
+  } catch (e) {
+    series = [];
+  }
+  function trend(ck, ak) {
+    var c = ff(ck), a = ff(ak);
+    if (c > a) return 'up';
+    if (c < a) return 'down';
+    return 'flat';
+  }
+  var views = fi('r7_views_atual');
+  var horas = ff('r7_horas_atual');
+  var subs = fi('r7_inscritos_atual');
+  var rev = ff('r7_receita_brl_atual');
+  return {
+    headline_views: views,
+    series: series,
+    kpis: [
+      { id: 'views', label: 'Visualizações', value: views, sub: raw.r7_msg_views || '', trend: trend('r7_views_atual', 'r7_views_ant') },
+      { id: 'horas', label: 'Tempo de exibição (horas)', value: Math.round(horas * 100) / 100, sub: raw.r7_msg_horas || '', trend: trend('r7_horas_atual', 'r7_horas_ant') },
+      { id: 'inscritos', label: 'Inscritos', value: subs, sub: raw.r7_msg_inscritos || '', trend: trend('r7_inscritos_atual', 'r7_inscritos_ant') },
+      { id: 'receita', label: 'Receita estimada', value: Math.round(rev * 100) / 100, sub: raw.r7_msg_receita || '', trend: trend('r7_receita_brl_atual', 'r7_receita_brl_ant') },
+    ],
+  };
+}
+
+function _dadosTxtToFrontend(parsed) {
+  var inscritos = _pdInt(parsed, 'Inscritos');
+  var viewsTotais = _pdInt(parsed, 'Views_totais_canal') || _pdInt(parsed, 'Views totais');
+  var totalVids = _pdInt(parsed, 'Total de vídeos') || _pdInt(parsed, 'Total videos') || _pdInt(parsed, 'Videos');
+  var views28 = _pdInt(parsed, 'Views_28d') || _pdInt(parsed, 'Views');
+  var cotacao = _pdFloat(parsed, 'Cotação USD/BRL') || _pdFloat(parsed, 'Cotacao USD/BRL');
+  if (!cotacao || cotacao < 1) cotacao = 5.15;
+  var vr = parsed.videos_receita || [];
+  var topRpm = [];
+  for (var i = 0; i < Math.min(10, vr.length); i++) {
+    var x = vr[i];
+    topRpm.push({ titulo: x.titulo || '', brl: x.receita || 0, views: x.views || 0, rpm: x.rpm || 0 });
+  }
+  var recDiaria = [];
+  var rd = parsed.receita_diaria || [];
+  for (var j = 0; j < rd.length; j++) recDiaria.push({ d: (rd[j] || {}).data || '', brl: (rd[j] || {}).brl || 0 });
+  var cmap = {};
+  for (var t = 0; t < vr.length; t++) {
+    var tit = String((vr[t] || {}).titulo || '').toLowerCase();
+    var rec = vr[t].receita || 0;
+    if (tit.indexOf('switch') !== -1) cmap.Switch = (cmap.Switch || 0) + rec;
+    else if (tit.indexOf('ps4') !== -1 || tit.indexOf('playstation 4') !== -1) cmap.PS4 = (cmap.PS4 || 0) + rec;
+    else if (tit.indexOf('steam deck') !== -1) cmap['Steam Deck'] = (cmap['Steam Deck'] || 0) + rec;
+    else if (tit.indexOf('xbox') !== -1) cmap.Xbox = (cmap.Xbox || 0) + rec;
+    else cmap.Outros = (cmap.Outros || 0) + rec;
+  }
+  var totC = 0, kk;
+  for (kk in cmap) totC += cmap[kk];
+  if (!totC) totC = 1;
+  var recConsole = [];
+  var keysSorted = Object.keys(cmap).sort(function (a, b) { return (cmap[b] || 0) - (cmap[a] || 0); });
+  for (var idx = 0; idx < keysSorted.length; idx++) {
+    var name = keysSorted[idx], val = cmap[name];
+    recConsole.push({ console: name, receita: Math.round(val * 100) / 100, pct: Math.round((val / totC) * 100) });
+  }
+  var out = {
+    canal: { inscritos: inscritos, views_totais: viewsTotais, total_videos: totalVids, cotacao: cotacao },
+    analytics28d: {
+      views: views28,
+      horas: _pdFloat(parsed, 'Horas assistidas'),
+      novos_inscritos: _pdInt(parsed, 'Novos inscritos'),
+      receita_brl: _pdFloat(parsed, 'Receita total (BRL)') || _pdFloat(parsed, 'Receita BRL'),
+    },
+    top_rpm: topRpm,
+    receita_diaria: recDiaria,
+    receita_console: recConsole,
+    comentarios: [],
+  };
+  var yt = _youtubeResumo7dJs(parsed);
+  if (yt) out.youtube_resumo_7d = yt;
+  return out;
+}
+
+function _standaloneFallbackDados() {
+  return {
+    canal: { inscritos: 0, views_totais: 0, total_videos: 0, cotacao: 5.15 },
+    analytics28d: { views: 0, horas: 0, novos_inscritos: 0, receita_brl: 0 },
+    top_rpm: [], receita_diaria: [], receita_console: [], comentarios: [],
+    youtube_resumo_7d: {
+      headline_views: 9024,
+      series: [
+        { d: '2026-04-26', v: 2200 }, { d: '2026-04-27', v: 1950 }, { d: '2026-04-28', v: 1800 },
+        { d: '2026-04-29', v: 1700 }, { d: '2026-04-30', v: 1720 }, { d: '2026-05-01', v: 1600 }, { d: '2026-05-02', v: 1054 },
+      ],
+      kpis: [
+        { id: 'views', label: 'Visualizações', value: 9024, sub: 'Coloque dados.txt ao lado da URL (copie do youtube-analytics)', trend: 'flat' },
+        { id: 'horas', label: 'Tempo de exibição (horas)', value: 502.5, sub: '—', trend: 'up' },
+        { id: 'inscritos', label: 'Inscritos', value: 64, sub: '—', trend: 'down' },
+        { id: 'receita', label: 'Receita estimada', value: 1756.71, sub: '—', trend: 'flat' },
+      ],
+    },
+  };
+}
+
 function _normalizeTitleMatchStandalone(s) {
   if (s == null || s === '') return '';
   var t = String(s).toLowerCase().trim().replace(/\n/g, ' ').replace(/\r/g, ' ').replace(/\t/g, ' ');
@@ -2513,66 +2745,58 @@ function _pendRawToComponentStandalone(pendRaw) {
   });
 }
 
-function _applyStandaloneDashboardState(filaComp, pendsComp) {
+function _applyStandaloneDashboardState(filaComp, pendsComp, dadosPainelOpt, metasExtrasOpt) {
   var ban = document.getElementById('standalone-banner');
   if (ban) {
     ban.style.display = 'block';
-    ban.textContent = 'Servidor estático: lê fila/histórico/*.json ao lado da URL. Produção gravável com streamlit run app.py (youtube-analytics).';
+    ban.textContent =
+      'Servidor estático: lê dados.txt + JSON ao lado da URL. Atualização real: pipeline youtube-analytics ou streamlit.';
   }
+  var dadosPainel = dadosPainelOpt && typeof dadosPainelOpt === 'object' ? dadosPainelOpt : _standaloneFallbackDados();
+  var mx = metasExtrasOpt && typeof metasExtrasOpt === 'object' ? metasExtrasOpt : {};
   _STATE = {
-    dados: {
-      canal: { inscritos: 0, views_totais: 0, total_videos: 0, cotacao: 5.15 },
-      analytics28d: { views: 0, horas: 0, novos_inscritos: 0, receita_brl: 0 },
-      top_rpm: [],
-      receita_diaria: [],
-      receita_console: [],
-      comentarios: [],
-      youtube_resumo_7d: {
-        headline_views: 9024,
-        series: [
-          { d: '2026-04-26', v: 2200 },
-          { d: '2026-04-27', v: 1950 },
-          { d: '2026-04-28', v: 1800 },
-          { d: '2026-04-29', v: 1700 },
-          { d: '2026-04-30', v: 1720 },
-          { d: '2026-05-01', v: 1600 },
-          { d: '2026-05-02', v: 1054 },
-        ],
-        kpis: [
-          { id: 'views', label: 'Visualizações', value: 9024, sub: 'O mesmo de 7 dias atrás', trend: 'flat' },
-          { id: 'horas', label: 'Tempo de exibição (horas)', value: 502.5, sub: '19% a mais do que há 7 dias', trend: 'up' },
-          { id: 'inscritos', label: 'Inscritos', value: 64, sub: '7% a menos do que há 7 dias', trend: 'down' },
-          { id: 'receita', label: 'Receita estimada', value: 1756.71, sub: '—', trend: 'flat' },
-        ],
-      },
-    },
+    dados: dadosPainel,
     fila: filaComp,
     concorrentes: [],
     funil: {},
     sugestao_semana: {},
     sugestoes_pendentes: pendsComp,
     metas: {
-      anual: { desc: '—', atingida: false },
-      ano: { receita: 30000, inscritos: 10000, videos: 52 },
-      q2: { receita: 8000, inscritos: 3000, videos: 13 },
-      atual: { receita_ytd: 0, inscritos_ytd: 0, videos_ytd: 0, receita_q2: 0, receita_q2_has_data: false, inscritos_q2: 0, videos_q2: 0 },
+      anual: { desc: mx.meta_anual_desc || mx.descricao || '—', atingida: !!mx.meta_anual_atingida },
+      ano: {
+        receita: mx.receita_ano || mx.meta_receita_anual || 30000,
+        inscritos: mx.inscritos_ano || mx.meta_inscritos_anual || 10000,
+        videos: mx.videos_ano || mx.meta_videos_anual || 52,
+      },
+      q2: {
+        receita: mx.meta_receita_q2 || 8000,
+        inscritos: mx.meta_inscritos_q2 || 3000,
+        videos: mx.meta_videos_q2 || 13,
+      },
+      atual: {
+        receita_ytd: mx.receita_ytd != null ? Number(mx.receita_ytd) : 0,
+        inscritos_ytd: mx.inscritos_ytd != null ? parseInt(mx.inscritos_ytd, 10) : 0,
+        videos_ytd: mx.videos_ytd != null ? parseInt(mx.videos_ytd, 10) : 0,
+        receita_q2: mx.receita_q2 != null ? Number(mx.receita_q2) : 0,
+        receita_q2_has_data: true,
+        inscritos_q2: mx.inscritos_q2 != null ? parseInt(mx.inscritos_q2, 10) : 0,
+        videos_q2: mx.videos_q2 != null ? parseInt(mx.videos_q2, 10) : 0,
+      },
       accuracy: { overall: 0, trend: '', months: [] },
-      padroes: []
+      padroes: Array.isArray(mx.padroes) ? mx.padroes : [],
     },
     historico_links: [],
     config: {
       token: { status: 'err', expira: '—', msg: 'Sem Streamlit — só leitura' },
-      files: []
+      files: [],
     },
     result_payload: {},
-    loading: false
+    loading: false,
   };
   _renderAll();
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// INIT — placeholders (Streamlit) ou JSON local (página aberta direto)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 document.addEventListener('DOMContentLoaded', function() {
   var placeholderIds = ['metrics','top-rpm-box','receita-console-box','receita-chart-box',
     'insights-box','producao-hero-area','proximos-conteudos','kanban','pending-box',
@@ -2600,19 +2824,39 @@ document.addEventListener('DOMContentLoaded', function() {
   Promise.all([
     _fetchJsonStandalone(base, 'fila_producao.json'),
     _fetchJsonStandalone(base, 'historico.json'),
-    _fetchJsonStandalone(base, 'sugestoes_pendentes.json')
+    _fetchJsonStandalone(base, 'sugestoes_pendentes.json'),
+    _fetchJsonStandalone(base, 'metas.json'),
+    _fetchTextStandalone(base, 'dados.txt'),
   ]).then(function (rows) {
-    var filaRaw = rows[0];
-    var hist = rows[1];
-    var pends = rows[2];
-    var anyData = (Array.isArray(filaRaw) && filaRaw.length) || (Array.isArray(hist) && hist.length);
-    if (!anyData) {
+    var filaRaw = rows[0],
+      hist = rows[1],
+      pends = rows[2];
+    var metasRaw = rows[3];
+    var textoDados = rows[4] || '';
+    var filaHist =
+      (Array.isArray(filaRaw) && filaRaw.length) || (Array.isArray(hist) && hist.length);
+    var temDadosTxt = !!String(textoDados).trim();
+    if (!filaHist && !temDadosTxt) {
       placeholders();
       return;
     }
-    var filaComp = _buildFilaComponentStandalone(filaRaw, hist);
-    var pendsComp = _pendRawToComponentStandalone(pends);
-    _applyStandaloneDashboardState(filaComp, pendsComp);
+    var filaComp = _buildFilaComponentStandalone(
+      Array.isArray(filaRaw) ? filaRaw : [],
+      Array.isArray(hist) ? hist : []
+    );
+    var pendsComp = _pendRawToComponentStandalone(Array.isArray(pends) ? pends : []);
+    var metasExtr = {};
+    try {
+      if (metasRaw && typeof metasRaw === 'object' && Object.keys(metasRaw).length) metasExtr = metasRaw;
+    } catch (e1) {}
+    var dadosPainel = null;
+    try {
+      if (temDadosTxt) dadosPainel = _dadosTxtToFrontend(_parseDadosTxtJs(textoDados));
+    } catch (e2) {
+      dadosPainel = null;
+    }
+    if (!dadosPainel || typeof dadosPainel !== 'object') dadosPainel = _standaloneFallbackDados();
+    _applyStandaloneDashboardState(filaComp, pendsComp, dadosPainel, metasExtr);
   });
 });
 </script>
