@@ -2423,6 +2423,10 @@ function _saveComp() {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _standaloneJsonBase() {
   var p = String(location.pathname || '').replace(/\\/g, '/');
+  // Sempre apontar para a raiz do repositório onde estão os JSONs (fila, histórico…).
+  // Com URL .../frontend/index.html funciona; com .../frontend/ (barra final, index default)
+  // o pathname NÃO contém "index.html" e antes quebrava → fetch no lugar errado e "Aguardando dados...".
+  if (p.indexOf('/components/dashboard/frontend') !== -1) return '../../..';
   if (p.indexOf('/frontend/index.html') !== -1) return '../../..';
   return '.';
 }
