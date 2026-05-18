@@ -633,6 +633,37 @@ main {
 }
 .link-modal-dialog textarea { min-height: 120px; resize: vertical; }
 .link-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.voice-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.voice-row .btn { padding: 7px 10px; font-size: 0.62rem; }
+.voice-row .btn[data-voice-stop] { display: none; }
+.voice-row.is-recording .btn[data-voice-start] { display: none; }
+.voice-row.is-recording .btn[data-voice-stop] { display: inline-block; }
+.voice-status {
+  font-size: 0.6rem;
+  color: var(--text-3);
+  letter-spacing: 0.03em;
+}
+.voice-status.error { color: #ff6b6b; }
+.voice-status.ok { color: var(--accent); }
+.script-feedback-area { margin-top: 10px; }
+.script-feedback-area textarea {
+  width: 100%;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.72rem;
+  color: var(--text);
+  font-family: var(--font);
+  resize: vertical;
+  min-height: 70px;
+  box-sizing: border-box;
+}
 
 .btn {
   background: var(--accent-dim);
@@ -804,6 +835,90 @@ main {
   text-align: right;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+/* ═══ RESUMO YT (aba Metas) ═══ */
+.yt-resumo-wrap {
+  background: linear-gradient(180deg, #232326 0%, #1a1a1d 100%);
+  border: 1px solid #2e2e32;
+  border-radius: var(--radius);
+  padding: 18px 20px 14px;
+  margin-bottom: 14px;
+}
+.yt-resumo-headline {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.35;
+  margin-bottom: 18px;
+  max-width: 920px;
+}
+.yt-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 980px) {
+  .yt-resumo-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.yt-resumo-cell { min-width: 0; }
+.yt-resumo-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.yt-resumo-label {
+  font-size: 0.62rem;
+  color: var(--text-3);
+  text-transform: none;
+}
+.yt-resumo-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.02em;
+}
+.yt-trend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  line-height: 1;
+}
+.yt-trend-up { background: rgba(74,222,128,0.18); color: var(--green); }
+.yt-trend-down { background: rgba(161,161,170,0.15); color: var(--text-3); }
+.yt-trend-flat { background: rgba(74,222,128,0.15); color: var(--green); font-size: 0.55rem; }
+.yt-resumo-sub {
+  font-size: 0.58rem;
+  color: var(--text-3);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+.yt-resumo-chart-h {
+  font-size: 0.58rem;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+#yt-resumo-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  margin-top: 4px;
+}
+#yt-resumo-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 120px;
 }
 
 /* ═══ LEARNING ═══ */
@@ -1325,12 +1440,6 @@ main {
     </div>
   </details>
 
-  <details class="collapse-panel s">
-    <summary>Vídeos publicados e vinculação a sugestões</summary>
-    <div class="collapse-panel-body">
-      <div class="box" id="video-list-box"></div>
-    </div>
-  </details>
 </section>
 
 <!-- ════════════════════════════════════════════
@@ -1340,6 +1449,7 @@ main {
   <div class="sh s"><h1>Metas & Projeções</h1><p>Acompanhamento anual e trimestral</p></div>
 
   <div class="box s" id="meta-anual-box"></div>
+  <div class="s" id="youtube-resumo-metas"></div>
   <div class="box s" id="meta-tri-box"></div>
   <div class="cols s">
     <div class="box" id="accuracy-box"></div>
@@ -1367,6 +1477,11 @@ main {
     <label class="link-modal-field" for="link-modal-sug">Sugestão da IA (opcional)</label>
     <select id="link-modal-sug"></select>
     <label class="link-modal-field" for="link-modal-notas">O que eu quis entregar com este vídeo</label>
+    <div class="voice-row" data-voice-row data-target="link-modal-notas">
+      <button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>
+      <button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>
+      <span class="voice-status" data-voice-status>Clique em iniciar para falar</span>
+    </div>
     <textarea id="link-modal-notas" placeholder="Contexto da ideia, ângulo emocional, o que funcionou na sua cabeça…"></textarea>
     <div class="link-modal-actions">
       <button type="button" class="btn" onclick="_submitLinkVideo()">Salvar notas</button>
@@ -1427,6 +1542,182 @@ function updateHeight() {
   var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, 2400);
   window._stHeight(h);
 }
+
+function _ensureChatIdeaVoiceRow() {
+  var modal = document.getElementById('modal-chat-ideia');
+  if (!modal) return;
+  var footer = modal.querySelector('.modal-footer');
+  if (!footer) return;
+  if (footer.querySelector('[data-chat-voice-row]')) return;
+
+  var targetEl = modal.querySelector('textarea, input[type="text"], input:not([type])');
+  if (!targetEl) return;
+  if (!targetEl.id) {
+    targetEl.id = 'chat-ideia-audio-target-' + Date.now().toString(36);
+  }
+
+  var row = document.createElement('div');
+  row.className = 'voice-row';
+  row.setAttribute('data-voice-row', '');
+  row.setAttribute('data-chat-voice-row', '1');
+  row.setAttribute('data-target', targetEl.id);
+  row.innerHTML = ''
+    + '<button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>'
+    + '<button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>'
+    + '<span class="voice-status" data-voice-status></span>';
+
+  footer.insertBefore(row, footer.firstChild);
+}
+
+function _wireChatIdeaVoice() {
+  if (window._chatIdeaVoiceWired) return;
+  window._chatIdeaVoiceWired = true;
+
+  function refresh() {
+    _ensureChatIdeaVoiceRow();
+    _VoiceNote.bindAll();
+  }
+
+  refresh();
+  try {
+    var mo = new MutationObserver(function () { refresh(); });
+    if (document.body) mo.observe(document.body, { childList: true, subtree: true });
+  } catch (e) {}
+}
+
+var _VoiceNote = (function () {
+  var RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var active = null;
+  var lock = false;
+
+  function _setStatus(row, text, kind) {
+    if (!row) return;
+    var status = row.querySelector('[data-voice-status]');
+    if (!status) return;
+    status.textContent = text || '';
+    status.classList.remove('error', 'ok');
+    if (kind) status.classList.add(kind);
+  }
+
+  function _appendText(targetEl, incoming) {
+    if (!targetEl || !incoming) return;
+    var prev = (targetEl.value || '').trim();
+    var nxt = String(incoming || '').trim();
+    if (!nxt) return;
+    targetEl.value = prev ? (prev + '\n' + nxt) : nxt;
+    targetEl.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function _stopInternal(message, kind) {
+    if (active && active.row) active.row.classList.remove('is-recording');
+    if (active && active.recognition) {
+      try { active.recognition.onresult = null; } catch (e) {}
+      try { active.recognition.onerror = null; } catch (e) {}
+      try { active.recognition.onend = null; } catch (e) {}
+      try { active.recognition.stop(); } catch (e) {}
+    }
+    if (active && active.row) _setStatus(active.row, message || 'Transcrição finalizada', kind || 'ok');
+    active = null;
+    lock = false;
+  }
+
+  function _start(row) {
+    if (!row || lock) return;
+    if (!RecognitionCtor) {
+      _setStatus(row, 'Navegador sem suporte à transcrição por voz', 'error');
+      return;
+    }
+    var targetId = row.getAttribute('data-target');
+    var targetEl = document.getElementById(targetId || '');
+    if (!targetEl) {
+      _setStatus(row, 'Campo de destino não encontrado', 'error');
+      return;
+    }
+    if (active && active.row && active.row !== row) {
+      _stopInternal('Transcrição anterior interrompida', 'ok');
+    }
+    lock = true;
+    var recognition = new RecognitionCtor();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    var finalBuffer = '';
+    active = { row: row, recognition: recognition };
+    row.classList.add('is-recording');
+    _setStatus(row, 'Ouvindo... clique em parar quando terminar', 'ok');
+
+    recognition.onresult = function (event) {
+      var interim = '';
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var piece = event.results[i][0] ? event.results[i][0].transcript : '';
+        if (event.results[i].isFinal) {
+          finalBuffer += (piece || '').trim() + ' ';
+        } else {
+          interim += piece || '';
+        }
+      }
+      var preview = (finalBuffer + interim).trim();
+      if (preview) {
+        _setStatus(row, 'Transcrevendo: "' + preview.slice(0, 80) + (preview.length > 80 ? '...' : '') + '"', 'ok');
+      }
+    };
+
+    recognition.onerror = function (event) {
+      var code = (event && event.error) ? String(event.error) : 'erro_desconhecido';
+      var msg = code === 'not-allowed'
+        ? 'Permissão de microfone negada'
+        : 'Erro na captura de voz: ' + code;
+      _stopInternal(msg, 'error');
+    };
+
+    recognition.onend = function () {
+      if (!active || active.recognition !== recognition) return;
+      var text = finalBuffer.trim();
+      if (text) {
+        _appendText(targetEl, text);
+        _stopInternal('Transcrição inserida no campo', 'ok');
+      } else {
+        _stopInternal('Nenhuma fala detectada', 'error');
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      _stopInternal('Não foi possível iniciar o microfone', 'error');
+    }
+  }
+
+  function _stop(row) {
+    if (!active || !active.recognition) return;
+    if (row && active.row && row !== active.row) return;
+    try { active.recognition.stop(); } catch (e) {}
+  }
+
+  function bindAll() {
+    var rows = document.querySelectorAll('[data-voice-row]');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (row._voiceBound) continue;
+      row._voiceBound = true;
+      var bStart = row.querySelector('[data-voice-start]');
+      var bStop = row.querySelector('[data-voice-stop]');
+      if (bStart) {
+        bStart.addEventListener('click', function (evt) {
+          _start(evt.currentTarget.closest('[data-voice-row]'));
+        });
+      }
+      if (bStop) {
+        bStop.addEventListener('click', function (evt) {
+          _stop(evt.currentTarget.closest('[data-voice-row]'));
+        });
+      }
+      if (!RecognitionCtor) _setStatus(row, 'Navegador sem suporte à transcrição por voz', 'error');
+    }
+  }
+
+  return { bindAll: bindAll, stop: _stop };
+}());
 
 function _renderLinkFeedback(rp) {
   var el = document.getElementById('link-feedback-toast');
@@ -1540,8 +1831,9 @@ function _renderAll() {
   renderProximosConteudos(fila);
   renderKanban(fila);
   renderPendingBox(pends, rp);
-  renderProducaoVideoList(fila);
-  renderMetas(metas, hlinks);
+  _wireChatIdeaVoice();
+  _VoiceNote.bindAll();
+  renderMetas(metas, hlinks, d);
   renderConfig(cfg, concs);
   _wireAddToQueue();
   _wireTemaLivre();
@@ -1851,6 +2143,18 @@ function renderPendingBox(pends, rp) {
       +_useSugCard(rp.id1||'',1)+_useSugCard(rp.id2||'',2)+'</div>'
       +'<div style="border-top:1px solid var(--border);padding-top:12px;"><div style="font-size:0.6rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Gerar script</div>'
       +'<textarea id="script-tema" placeholder="Cole o título aprovado..." style="width:100%;background:var(--surface-3);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:0.72rem;color:var(--text);font-family:var(--font);resize:vertical;min-height:60px;"></textarea>'
+      +'<div class="voice-row" data-voice-row data-target="script-tema">'
+      +'<button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>'
+      +'<button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>'
+      +'<span class="voice-status" data-voice-status>Fale o tema para gerar o script</span></div>'
+      +'<div class="script-feedback-area">'
+      +'<div style="font-size:0.6rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Ajustes desejados no script (opcional)</div>'
+      +'<textarea id="script-feedback" placeholder="Ex.: reforçar comparação com uso real, reduzir parte técnica, trazer mais tom pessoal..."></textarea>'
+      +'<div class="voice-row" data-voice-row data-target="script-feedback">'
+      +'<button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>'
+      +'<button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>'
+      +'<span class="voice-status" data-voice-status>Fale os ajustes que você quer no roteiro</span></div>'
+      +'</div>'
       +'<button class="btn" style="width:100%;margin-top:6px;" onclick="_genScript()">📝 Gerar script completo</button>'
       +(rp.script?'<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;"><div class="box-title">Script completo</div><div style="white-space:pre-wrap;font-size:0.7rem;color:var(--text-2);line-height:1.6;">'+esc(rp.script)+'</div></div>':'')
       +'</div>';
@@ -1882,30 +2186,11 @@ function _useSug(sugId, num) {
 
 function _genScript() {
   var tema=((document.getElementById('script-tema')||{}).value||'').trim();
+  var feedback=((document.getElementById('script-feedback')||{}).value||'').trim();
   if(!tema){alert('Cole o título antes de gerar.');return;}
-  window._stAction('generate_script',{tema:tema});
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// RENDER — PRODUÇÃO: vídeos publicados
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderProducaoVideoList(fila) {
-  var el=document.getElementById('video-list-box'); if(!el) return;
-  var pub=fila.filter(function(f){return f.status==='publicado'||f.status==='concluido';});
-  if(!pub.length){el.innerHTML='<div class="box-title">Vídeos publicados</div><div style="color:var(--text-3);font-size:0.72rem;">Nenhum vídeo publicado na fila ainda.</div>';return;}
-  el.innerHTML='<div class="box-title">Vídeos publicados — vincule ao conteúdo ou desvincule quando necessário</div>'
-    +pub.map(function(v){
-      var gi=fila.indexOf(v);
-      var tc=v.funil==='fundo'?'tag-fundo':v.funil==='meio'?'tag-meio':'tag-topo';
-      var linked=!!v.is_linked_real;
-      var action=linked
-        ? '<button class="btn btn-sm vlist-action vlist-action-linked" title="Clique para desvincular" onclick="_confirmUnlinkVideo('+gi+')">Vinculado</button>'
-        : '<button class="btn btn-sm btn-ghost vlist-action" title="Vincular conteúdo" onclick="_openLinkModal('+gi+')">Linkar</button>';
-      return '<div class="vlist-item"><span class="funil-tag '+tc+'">'+esc(v.funil||'')+'</span>'
-        +'<span class="vlist-title">'+esc((v.titulo||'').slice(0,55))+'</span>'
-        +'<span style="font-size:0.62rem;color:var(--text-3);">RPM R$'+Number(v.rpm||0).toFixed(0)+'</span>'
-        +action+'</div>';
-    }).join('');
+  var payload={tema:tema};
+  if(feedback){ payload.feedback_script=feedback.slice(0, 2500); }
+  window._stAction('generate_script',payload);
 }
 
 function _parseFilaDate(raw) {
@@ -2044,6 +2329,7 @@ function _closeLinkModal() {
   var m=document.getElementById('link-video-modal'); if(!m) return;
   m.classList.remove('is-open');
   m.setAttribute('aria-hidden','true');
+  _VoiceNote.stop();
 }
 
 function _submitLinkVideo() {
@@ -2067,12 +2353,169 @@ function _wireGenLote() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RESUMO YOUTUBE (aba Metas)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function _fmtYtHeadlineViews(v) {
+  var n = Number(v) || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + ' mi';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace('.', ',') + ' mil';
+  return n.toLocaleString('pt-BR');
+}
+
+function _ytTrendIcon(tr) {
+  if (tr === 'up')
+    return '<span class="yt-trend yt-trend-up">↑</span>';
+  if (tr === 'down')
+    return '<span class="yt-trend yt-trend-down">↓</span>';
+  return '<span class="yt-trend yt-trend-flat">✓</span>';
+}
+
+function _fmtYtKpiValue(row) {
+  var id = row.id;
+  var x = Number(row.value);
+  if (!isFinite(x)) return '—';
+  if (id === 'views') return _fmtYtHeadlineViews(x);
+  if (id === 'horas') return x.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (id === 'inscritos') {
+    if (x > 0) return '+' + String(Math.round(x));
+    return String(Math.round(x));
+  }
+  if (id === 'receita')
+    return 'R$ ' + x.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return String(x);
+}
+
+function _ytRedrawLineChart(canvas, series) {
+  if (!canvas) return;
+  var raw = Array.isArray(series) ? series.slice() : [];
+  if (!raw.length) {
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  if (raw.length === 1) raw.push({ d: raw[0].d, v: raw[0].v });
+  var vals = raw.map(function (p) {
+    return Number(p.v) || 0;
+  });
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var W = canvas.parentElement ? canvas.parentElement.offsetWidth : 400;
+  var H = 120;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  var padL = 4, padR = 28, padT = 10, padB = 22;
+  var iw = W - padL - padR, ih = H - padT - padB;
+  var vmin = Math.min.apply(null, vals) * 0.92,
+    vmax = Math.max.apply(null, vals) * 1.08 || 1;
+  if (vmax <= vmin) vmax = vmin + 1;
+  var line = '#7eb8ff';
+  ctx.fillStyle = 'rgba(126,184,255,0.07)';
+  ctx.strokeStyle = 'rgba(148,148,160,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT + ih * 0.5);
+  ctx.lineTo(W - padR, padT + ih * 0.5);
+  ctx.stroke();
+  var n = vals.length - 1;
+  var pts = vals.map(function (v, i) {
+    var x = padL + (iw * i) / n;
+    var y = padT + ih - ((v - vmin) / (vmax - vmin)) * ih;
+    return { x: x, y: y, vall: v };
+  });
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, H - padB);
+  ctx.lineTo(pts[0].x, pts[0].y);
+  for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y);
+  ctx.lineTo(pts[pts.length - 1].x, H - padB);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(126,184,255,0.12)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 2;
+  pts.forEach(function (p, i) {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(245,245,250,0.35)';
+  ctx.font = '9px Outfit, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(String(Math.round(vmax)), W - 2, padT + 8);
+  ctx.fillText('0', W - 2, padT + ih + 12);
+}
+
+function renderYoutubeResumoMetas(dados) {
+  var el = document.getElementById('youtube-resumo-metas');
+  if (!el) return;
+  var y = dados.youtube_resumo_7d;
+  if (!y) {
+    el.innerHTML =
+      '<div class="box s" style="border-style:dashed;"><div class="box-title">Resumo últimos 7 dias · YouTube</div>'
+      + '<div style="color:var(--text-3);font-size:0.72rem;line-height:1.45;">Aparece aqui quando o <code>dados.txt</code> gerado pela coleta incluir a seção <code>RESUMO ANALYTICS 7D vs 7D</code> (rode o pipeline).</div></div>';
+    return;
+  }
+  var headlineN = Number(y.headline_views) || 0;
+  var head =
+    'Seu canal teve <strong>' +
+    esc(_fmtYtHeadlineViews(headlineN)) +
+    '</strong> visualizações nos últimos 7 dias';
+  var kpis = y.kpis || [];
+  var cells = kpis.map(function (row) {
+    return (
+      '<div class="yt-resumo-cell">'
+      + '<div class="yt-resumo-label-row"><span class="yt-resumo-label">' +
+      esc(row.label) +
+      '</span></div>'
+      + '<div class="yt-resumo-value">' +
+      esc(_fmtYtKpiValue(row)) +
+      '' +
+      _ytTrendIcon(row.trend) +
+      '</div>'
+      + '<div class="yt-resumo-sub">' +
+      esc(row.sub || '') +
+      '</div></div>'
+    );
+  }).join('');
+  var ser = Array.isArray(y.series) ? y.series : [];
+  var chartBlk =
+    ser.length >= 2
+      ? '<div class="yt-resumo-chart-h">Visualizações por dia · janela atual</div>'
+        + '<div id="yt-resumo-canvas-wrap"><canvas id="yt-resumo-line"></canvas></div>'
+      : '';
+  el.innerHTML =
+    '<div class="yt-resumo-wrap">'
+    + '<div class="yt-resumo-headline">' +
+    head +
+    '</div>'
+    + '<div class="yt-resumo-grid">' +
+    cells +
+    '</div>'
+    + chartBlk +
+    '</div>';
+  if (ser.length >= 2) {
+    requestAnimationFrame(function () {
+      _ytRedrawLineChart(document.getElementById('yt-resumo-line'), ser);
+    });
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // RENDER — METAS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderMetas(m, hlinks) {
-  var gc=function(p){return p>=70?'var(--green)':p>=40?'var(--yellow)':'var(--red)';};
-  var anual=m.anual||{}, ano=m.ano||{}, q2=m.q2||{}, atual=m.atual||{};
-  var padroes=m.padroes||[], accuracy=m.accuracy||{};
+function renderMetas(m, hlinks, dados) {
+  renderYoutubeResumoMetas(dados || {});
+  var gc = function (p) {
+    return p >= 70 ? 'var(--green)' : p >= 40 ? 'var(--yellow)' : 'var(--red)';
+  };
+  var anual = m.anual || {},
+    ano = m.ano || {},
+    q2 = m.q2 || {},
+    atual = m.atual || {};
+  var padroes = m.padroes || [],
+    accuracy = m.accuracy || {};
 
   var el_ma=document.getElementById('meta-anual-box');
   if(el_ma){
@@ -2210,6 +2653,10 @@ function _saveComp() {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function _standaloneJsonBase() {
   var p = String(location.pathname || '').replace(/\\/g, '/');
+  // Sempre apontar para a raiz do repositório onde estão os JSONs (fila, histórico…).
+  // Com URL .../frontend/index.html funciona; com .../frontend/ (barra final, index default)
+  // o pathname NÃO contém "index.html" e antes quebrava → fetch no lugar errado e "Aguardando dados...".
+  if (p.indexOf('/components/dashboard/frontend') !== -1) return '../../..';
   if (p.indexOf('/frontend/index.html') !== -1) return '../../..';
   return '.';
 }
@@ -2218,6 +2665,238 @@ function _fetchJsonStandalone(base, filename) {
   var root = String(base || '.').replace(/\/+$/, '');
   var url = root + '/' + filename;
   return fetch(url).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; });
+}
+
+function _fetchTextStandalone(base, filename) {
+  var root = String(base || '.').replace(/\/+$/, '');
+  var url = root + '/' + filename;
+  return fetch(url).then(function (r) {
+    return r.ok ? r.text() : '';
+  }).catch(function () {
+    return '';
+  });
+}
+
+function _pdInt(parsed, key) {
+  try {
+    return parseInt(String((parsed || {})[key] || '0').replace(/\./g, '').replace(',', '.').trim().split(/\s/)[0], 10) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function _pdFloat(parsed, key) {
+  try {
+    var raw = String((parsed || {})[key] || '0')
+      .replace(/R\$\s*/i, '')
+      .trim()
+      .split(/\s/)[0];
+    if (raw.indexOf(',') !== -1 && raw.indexOf('.') !== -1) raw = raw.replace(/\./g, '').replace(',', '.');
+    else raw = raw.replace(',', '.');
+    return parseFloat(raw) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function _parseDadosTxtJs(txt) {
+  var dados = {};
+  var secao = '';
+  var resumo = {};
+  var videosViews = [], videosRec = [], recDia = [];
+  var raw = String(txt || '').split(/\r?\n/);
+  var i, linha, k, v, ci, parts, p, j, dpi, item;
+  for (i = 0; i < raw.length; i++) {
+    linha = raw[i].trim();
+    if (!linha) continue;
+    if (linha.slice(0, 3) === '===') {
+      secao = linha;
+      continue;
+    }
+    if (secao.indexOf('RESUMO ANALYTICS 7D') !== -1) {
+      ci = linha.indexOf(':');
+      if (ci !== -1) resumo[linha.slice(0, ci).trim()] = linha.slice(ci + 1).trim();
+      continue;
+    }
+    if (secao.indexOf('DADOS DO CANAL') !== -1 || secao.indexOf('ANALYTICS 28 DIAS') !== -1) {
+      ci = linha.indexOf(':');
+      if (ci !== -1) {
+        k = linha.slice(0, ci).trim();
+        v = linha.slice(ci + 1).trim();
+        if (secao.indexOf('DADOS DO CANAL') !== -1 && k === 'Views totais') dados.Views_totais_canal = v;
+        if (secao.indexOf('ANALYTICS 28 DIAS') !== -1 && k === 'Views totais') dados.Views_28d = v;
+        dados[k] = v;
+      }
+      continue;
+    }
+    if (secao.indexOf('TOP 10 VIDEOS POR VIEWS') !== -1 && /^\d/.test(linha) && linha.indexOf('|') !== -1) {
+      parts = linha.split('|');
+      dpi = parts[0].indexOf('.');
+      item = { titulo: dpi !== -1 ? parts[0].slice(dpi + 1).trim() : parts[0].trim() };
+      for (j = 1; j < parts.length; j++) {
+        p = parts[j].trim();
+        if (p.indexOf('Views:') !== -1) item.views = parseInt(p.split(':')[1].replace(/,/g, '').trim(), 10);
+        else if (p.indexOf('Likes:') !== -1) item.likes = parseInt(p.split(':')[1].replace(/,/g, '').trim(), 10);
+      }
+      videosViews.push(item);
+      continue;
+    }
+    if (secao.indexOf('TOP 10 VIDEOS POR RECEITA') !== -1 && /^\d/.test(linha) && linha.indexOf('|') !== -1) {
+      parts = linha.split('|');
+      dpi = parts[0].indexOf('.');
+      item = { titulo: dpi !== -1 ? parts[0].slice(dpi + 1).trim() : parts[0].trim() };
+      for (j = 1; j < parts.length; j++) {
+        p = parts[j].trim();
+        if (p.indexOf('BRL') !== -1 && p.indexOf('R$') !== -1) {
+          ci = p.indexOf('R$');
+          item.receita = parseFloat(p.slice(ci + 1).replace(',', '.').trim());
+        } else if (p.indexOf('Views:') !== -1) item.views = parseInt(p.split(':')[1].replace(/,/g, '').trim(), 10);
+        else if (p.indexOf('RPM') !== -1 && p.indexOf('R$') !== -1) {
+          ci = p.indexOf('R$');
+          item.rpm = parseFloat(p.slice(ci + 1).replace(',', '.').trim());
+        }
+      }
+      videosRec.push(item);
+      continue;
+    }
+    if (secao.indexOf('RECEITA DIARIA') !== -1 && linha.indexOf('|') !== -1) {
+      parts = linha.split('|');
+      item = { data: parts[0].trim() };
+      for (j = 1; j < parts.length; j++) {
+        p = parts[j].trim();
+        if (p.indexOf('BRL') !== -1 && p.indexOf('R$') !== -1) {
+          ci = p.indexOf('R$');
+          item.brl = parseFloat(p.slice(ci + 1).replace(',', '.').trim());
+        }
+      }
+      recDia.push(item);
+    }
+  }
+  dados.videos_views = videosViews;
+  dados.videos_receita = videosRec;
+  dados.receita_diaria = recDia;
+  if (Object.keys(resumo).length) dados.resumo_7d = resumo;
+  return dados;
+}
+
+function _youtubeResumo7dJs(parsed) {
+  var raw = parsed.resumo_7d || {};
+  if (!raw || !Object.keys(raw).length) return null;
+  function fi(key, d) {
+    try {
+      return parseInt(String(raw[key] != null ? raw[key] : d).replace(/\./g, '').replace(',', '.').trim().split(/\s/)[0], 10) || 0;
+    } catch (e) {
+      return d || 0;
+    }
+  }
+  function ff(key, d) {
+    try {
+      return parseFloat(String(raw[key] != null ? raw[key] : d).replace(',', '.').trim()) || 0;
+    } catch (e) {
+      return d || 0;
+    }
+  }
+  var series = [];
+  try {
+    series = JSON.parse(raw.r7_series_views_json || '[]');
+    if (!Array.isArray(series)) series = [];
+  } catch (e) {
+    series = [];
+  }
+  function trend(ck, ak) {
+    var c = ff(ck), a = ff(ak);
+    if (c > a) return 'up';
+    if (c < a) return 'down';
+    return 'flat';
+  }
+  var views = fi('r7_views_atual');
+  var horas = ff('r7_horas_atual');
+  var subs = fi('r7_inscritos_atual');
+  var rev = ff('r7_receita_brl_atual');
+  return {
+    headline_views: views,
+    series: series,
+    kpis: [
+      { id: 'views', label: 'Visualizações', value: views, sub: raw.r7_msg_views || '', trend: trend('r7_views_atual', 'r7_views_ant') },
+      { id: 'horas', label: 'Tempo de exibição (horas)', value: Math.round(horas * 100) / 100, sub: raw.r7_msg_horas || '', trend: trend('r7_horas_atual', 'r7_horas_ant') },
+      { id: 'inscritos', label: 'Inscritos', value: subs, sub: raw.r7_msg_inscritos || '', trend: trend('r7_inscritos_atual', 'r7_inscritos_ant') },
+      { id: 'receita', label: 'Receita estimada', value: Math.round(rev * 100) / 100, sub: raw.r7_msg_receita || '', trend: trend('r7_receita_brl_atual', 'r7_receita_brl_ant') },
+    ],
+  };
+}
+
+function _dadosTxtToFrontend(parsed) {
+  var inscritos = _pdInt(parsed, 'Inscritos');
+  var viewsTotais = _pdInt(parsed, 'Views_totais_canal') || _pdInt(parsed, 'Views totais');
+  var totalVids = _pdInt(parsed, 'Total de vídeos') || _pdInt(parsed, 'Total videos') || _pdInt(parsed, 'Videos');
+  var views28 = _pdInt(parsed, 'Views_28d') || _pdInt(parsed, 'Views');
+  var cotacao = _pdFloat(parsed, 'Cotação USD/BRL') || _pdFloat(parsed, 'Cotacao USD/BRL');
+  if (!cotacao || cotacao < 1) cotacao = 5.15;
+  var vr = parsed.videos_receita || [];
+  var topRpm = [];
+  for (var i = 0; i < Math.min(10, vr.length); i++) {
+    var x = vr[i];
+    topRpm.push({ titulo: x.titulo || '', brl: x.receita || 0, views: x.views || 0, rpm: x.rpm || 0 });
+  }
+  var recDiaria = [];
+  var rd = parsed.receita_diaria || [];
+  for (var j = 0; j < rd.length; j++) recDiaria.push({ d: (rd[j] || {}).data || '', brl: (rd[j] || {}).brl || 0 });
+  var cmap = {};
+  for (var t = 0; t < vr.length; t++) {
+    var tit = String((vr[t] || {}).titulo || '').toLowerCase();
+    var rec = vr[t].receita || 0;
+    if (tit.indexOf('switch') !== -1) cmap.Switch = (cmap.Switch || 0) + rec;
+    else if (tit.indexOf('ps4') !== -1 || tit.indexOf('playstation 4') !== -1) cmap.PS4 = (cmap.PS4 || 0) + rec;
+    else if (tit.indexOf('steam deck') !== -1) cmap['Steam Deck'] = (cmap['Steam Deck'] || 0) + rec;
+    else if (tit.indexOf('xbox') !== -1) cmap.Xbox = (cmap.Xbox || 0) + rec;
+    else cmap.Outros = (cmap.Outros || 0) + rec;
+  }
+  var totC = 0, kk;
+  for (kk in cmap) totC += cmap[kk];
+  if (!totC) totC = 1;
+  var recConsole = [];
+  var keysSorted = Object.keys(cmap).sort(function (a, b) { return (cmap[b] || 0) - (cmap[a] || 0); });
+  for (var idx = 0; idx < keysSorted.length; idx++) {
+    var name = keysSorted[idx], val = cmap[name];
+    recConsole.push({ console: name, receita: Math.round(val * 100) / 100, pct: Math.round((val / totC) * 100) });
+  }
+  var out = {
+    canal: { inscritos: inscritos, views_totais: viewsTotais, total_videos: totalVids, cotacao: cotacao },
+    analytics28d: {
+      views: views28,
+      horas: _pdFloat(parsed, 'Horas assistidas'),
+      novos_inscritos: _pdInt(parsed, 'Novos inscritos'),
+      receita_brl: _pdFloat(parsed, 'Receita total (BRL)') || _pdFloat(parsed, 'Receita BRL'),
+    },
+    top_rpm: topRpm,
+    receita_diaria: recDiaria,
+    receita_console: recConsole,
+    comentarios: [],
+  };
+  var yt = _youtubeResumo7dJs(parsed);
+  if (yt) out.youtube_resumo_7d = yt;
+  return out;
+}
+
+function _standaloneFallbackDados() {
+  return {
+    canal: { inscritos: 0, views_totais: 0, total_videos: 0, cotacao: 5.15 },
+    analytics28d: { views: 0, horas: 0, novos_inscritos: 0, receita_brl: 0 },
+    top_rpm: [], receita_diaria: [], receita_console: [], comentarios: [],
+    youtube_resumo_7d: {
+      headline_views: 9024,
+      series: [
+        { d: '2026-04-26', v: 2200 }, { d: '2026-04-27', v: 1950 }, { d: '2026-04-28', v: 1800 },
+        { d: '2026-04-29', v: 1700 }, { d: '2026-04-30', v: 1720 }, { d: '2026-05-01', v: 1600 }, { d: '2026-05-02', v: 1054 },
+      ],
+      kpis: [
+        { id: 'views', label: 'Visualizações', value: 9024, sub: 'Coloque dados.txt ao lado da URL (copie do youtube-analytics)', trend: 'flat' },
+        { id: 'horas', label: 'Tempo de exibição (horas)', value: 502.5, sub: '—', trend: 'up' },
+        { id: 'inscritos', label: 'Inscritos', value: 64, sub: '—', trend: 'down' },
+        { id: 'receita', label: 'Receita estimada', value: 1756.71, sub: '—', trend: 'flat' },
+      ],
+    },
+  };
 }
 
 function _normalizeTitleMatchStandalone(s) {
@@ -2296,52 +2975,62 @@ function _pendRawToComponentStandalone(pendRaw) {
   });
 }
 
-function _applyStandaloneDashboardState(filaComp, pendsComp) {
+function _applyStandaloneDashboardState(filaComp, pendsComp, dadosPainelOpt, metasExtrasOpt) {
   var ban = document.getElementById('standalone-banner');
   if (ban) {
     ban.style.display = 'block';
-    ban.textContent = 'Pré-visualização local (lê fila_producao.json / historico.json na pasta do servidor). Para gravar: streamlit run app.py';
+    ban.textContent =
+      'Servidor estático: lê dados.txt + JSON ao lado da URL. Atualização real: pipeline youtube-analytics ou streamlit.';
   }
+  var dadosPainel = dadosPainelOpt && typeof dadosPainelOpt === 'object' ? dadosPainelOpt : _standaloneFallbackDados();
+  var mx = metasExtrasOpt && typeof metasExtrasOpt === 'object' ? metasExtrasOpt : {};
   _STATE = {
-    dados: {
-      canal: { inscritos: 0, views_totais: 0, total_videos: 0, cotacao: 5.15 },
-      analytics28d: { views: 0, horas: 0, novos_inscritos: 0, receita_brl: 0 },
-      top_rpm: [],
-      receita_diaria: [],
-      receita_console: [],
-      comentarios: []
-    },
+    dados: dadosPainel,
     fila: filaComp,
     concorrentes: [],
     funil: {},
     sugestao_semana: {},
     sugestoes_pendentes: pendsComp,
     metas: {
-      anual: { desc: '—', atingida: false },
-      ano: { receita: 30000, inscritos: 10000, videos: 52 },
-      q2: { receita: 8000, inscritos: 3000, videos: 13 },
-      atual: { receita_ytd: 0, inscritos_ytd: 0, videos_ytd: 0, receita_q2: 0, receita_q2_has_data: false, inscritos_q2: 0, videos_q2: 0 },
+      anual: { desc: mx.meta_anual_desc || mx.descricao || '—', atingida: !!mx.meta_anual_atingida },
+      ano: {
+        receita: mx.receita_ano || mx.meta_receita_anual || 30000,
+        inscritos: mx.inscritos_ano || mx.meta_inscritos_anual || 10000,
+        videos: mx.videos_ano || mx.meta_videos_anual || 52,
+      },
+      q2: {
+        receita: mx.meta_receita_q2 || 8000,
+        inscritos: mx.meta_inscritos_q2 || 3000,
+        videos: mx.meta_videos_q2 || 13,
+      },
+      atual: {
+        receita_ytd: mx.receita_ytd != null ? Number(mx.receita_ytd) : 0,
+        inscritos_ytd: mx.inscritos_ytd != null ? parseInt(mx.inscritos_ytd, 10) : 0,
+        videos_ytd: mx.videos_ytd != null ? parseInt(mx.videos_ytd, 10) : 0,
+        receita_q2: mx.receita_q2 != null ? Number(mx.receita_q2) : 0,
+        receita_q2_has_data: true,
+        inscritos_q2: mx.inscritos_q2 != null ? parseInt(mx.inscritos_q2, 10) : 0,
+        videos_q2: mx.videos_q2 != null ? parseInt(mx.videos_q2, 10) : 0,
+      },
       accuracy: { overall: 0, trend: '', months: [] },
-      padroes: []
+      padroes: Array.isArray(mx.padroes) ? mx.padroes : [],
     },
     historico_links: [],
     config: {
       token: { status: 'err', expira: '—', msg: 'Sem Streamlit — só leitura' },
-      files: []
+      files: [],
     },
     result_payload: {},
-    loading: false
+    loading: false,
   };
   _renderAll();
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// INIT — placeholders (Streamlit) ou JSON local (página aberta direto)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 document.addEventListener('DOMContentLoaded', function() {
   var placeholderIds = ['metrics','top-rpm-box','receita-console-box','receita-chart-box',
-    'insights-box','producao-hero-area','proximos-conteudos','kanban','pending-box','video-list-box',
-    'meta-anual-box','meta-tri-box','accuracy-box','patterns-box','links-box',
+    'insights-box','producao-hero-area','proximos-conteudos','kanban','pending-box',
+    'meta-anual-box','youtube-resumo-metas','meta-tri-box','accuracy-box','patterns-box','links-box',
     'token-box','files-status-box','conc-mgmt-box'];
 
   function placeholders() {
@@ -2365,19 +3054,39 @@ document.addEventListener('DOMContentLoaded', function() {
   Promise.all([
     _fetchJsonStandalone(base, 'fila_producao.json'),
     _fetchJsonStandalone(base, 'historico.json'),
-    _fetchJsonStandalone(base, 'sugestoes_pendentes.json')
+    _fetchJsonStandalone(base, 'sugestoes_pendentes.json'),
+    _fetchJsonStandalone(base, 'metas.json'),
+    _fetchTextStandalone(base, 'dados.txt'),
   ]).then(function (rows) {
-    var filaRaw = rows[0];
-    var hist = rows[1];
-    var pends = rows[2];
-    var anyData = (Array.isArray(filaRaw) && filaRaw.length) || (Array.isArray(hist) && hist.length);
-    if (!anyData) {
+    var filaRaw = rows[0],
+      hist = rows[1],
+      pends = rows[2];
+    var metasRaw = rows[3];
+    var textoDados = rows[4] || '';
+    var filaHist =
+      (Array.isArray(filaRaw) && filaRaw.length) || (Array.isArray(hist) && hist.length);
+    var temDadosTxt = !!String(textoDados).trim();
+    if (!filaHist && !temDadosTxt) {
       placeholders();
       return;
     }
-    var filaComp = _buildFilaComponentStandalone(filaRaw, hist);
-    var pendsComp = _pendRawToComponentStandalone(pends);
-    _applyStandaloneDashboardState(filaComp, pendsComp);
+    var filaComp = _buildFilaComponentStandalone(
+      Array.isArray(filaRaw) ? filaRaw : [],
+      Array.isArray(hist) ? hist : []
+    );
+    var pendsComp = _pendRawToComponentStandalone(Array.isArray(pends) ? pends : []);
+    var metasExtr = {};
+    try {
+      if (metasRaw && typeof metasRaw === 'object' && Object.keys(metasRaw).length) metasExtr = metasRaw;
+    } catch (e1) {}
+    var dadosPainel = null;
+    try {
+      if (temDadosTxt) dadosPainel = _dadosTxtToFrontend(_parseDadosTxtJs(textoDados));
+    } catch (e2) {
+      dadosPainel = null;
+    }
+    if (!dadosPainel || typeof dadosPainel !== 'object') dadosPainel = _standaloneFallbackDados();
+    _applyStandaloneDashboardState(filaComp, pendsComp, dadosPainel, metasExtr);
   });
 });
 </script>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 
@@ -58,6 +59,80 @@ def normalize_fila(fila_json: list, historico: list | None, find_historico_video
     return result
 
 
+def _youtube_resumo_7d(dados_parsed: dict) -> dict | None:
+    raw = dados_parsed.get("resumo_7d") or {}
+    if not raw:
+        return None
+
+    def _i(k: str, default: int = 0) -> int:
+        try:
+            return int(float(str(raw.get(k, default)).replace(",", ".").split()[0]))
+        except (TypeError, ValueError, IndexError):
+            return default
+
+    def _f(k: str, default: float = 0.0) -> float:
+        try:
+            return float(str(raw.get(k, default)).replace(",", ".").strip())
+        except (TypeError, ValueError):
+            return default
+
+    series: list = []
+    try:
+        series = json.loads(raw.get("r7_series_views_json", "[]") or "[]")
+    except json.JSONDecodeError:
+        series = []
+
+    def _trend(cur_key: str, ant_key: str) -> str:
+        c, a = _f(cur_key), _f(ant_key)
+        if c > a:
+            return "up"
+        if c < a:
+            return "down"
+        return "flat"
+
+    views = _i("r7_views_atual")
+    horas = _f("r7_horas_atual")
+    subs = _i("r7_inscritos_atual")
+    rev = _f("r7_receita_brl_atual")
+
+    kpis = [
+        {
+            "id": "views",
+            "label": "Visualizações",
+            "value": views,
+            "sub": raw.get("r7_msg_views", ""),
+            "trend": _trend("r7_views_atual", "r7_views_ant"),
+        },
+        {
+            "id": "horas",
+            "label": "Tempo de exibição (horas)",
+            "value": round(horas, 2),
+            "sub": raw.get("r7_msg_horas", ""),
+            "trend": _trend("r7_horas_atual", "r7_horas_ant"),
+        },
+        {
+            "id": "inscritos",
+            "label": "Inscritos",
+            "value": subs,
+            "sub": raw.get("r7_msg_inscritos", ""),
+            "trend": _trend("r7_inscritos_atual", "r7_inscritos_ant"),
+        },
+        {
+            "id": "receita",
+            "label": "Receita estimada",
+            "value": round(rev, 2),
+            "sub": raw.get("r7_msg_receita", ""),
+            "trend": _trend("r7_receita_brl_atual", "r7_receita_brl_ant"),
+        },
+    ]
+
+    return {
+        "headline_views": views,
+        "series": series if isinstance(series, list) else [],
+        "kpis": kpis,
+    }
+
+
 def dados_para_componente(dados_parsed: dict) -> dict:
     def _int(k):
         try:
@@ -72,13 +147,13 @@ def dados_para_componente(dados_parsed: dict) -> dict:
             return 0.0
 
     inscritos = _int("Inscritos")
-    views_totais = _int("Views totais")
+    views_totais = _int("Views_totais_canal") or _int("Views totais")
     total_videos = _int("Total de vídeos") or _int("Total videos") or _int("Videos")
-    views_28d = _int("Views")
+    views_28d = _int("Views_28d") or _int("Views")
     horas_28d = _float("Horas assistidas")
     novos = _int("Novos inscritos")
-    receita_brl = _float("Receita BRL")
-    cotacao = _float("Cotação USD/BRL") or 5.15
+    receita_brl = _float("Receita total (BRL)") or _float("Receita BRL")
+    cotacao = _float("Cotação USD/BRL") or _float("Cotacao USD/BRL") or 5.15
 
     top_rpm = []
     for v in dados_parsed.get("videos_receita", [])[:10]:
@@ -105,13 +180,17 @@ def dados_para_componente(dados_parsed: dict) -> dict:
     total_console = sum(console_map.values()) or 1
     receita_console = [{"console": k, "receita": round(v, 2), "pct": round(v / total_console * 100)} for k, v in sorted(console_map.items(), key=lambda x: -x[1])]
 
-    return {
+    out = {
         "canal": {"inscritos": inscritos, "views_totais": views_totais, "total_videos": total_videos, "cotacao": cotacao},
         "analytics28d": {"views": views_28d, "horas": horas_28d, "novos_inscritos": novos, "receita_brl": receita_brl},
         "top_rpm": top_rpm,
         "receita_diaria": receita_diaria,
         "receita_console": receita_console,
     }
+    y7 = _youtube_resumo_7d(dados_parsed)
+    if y7:
+        out["youtube_resumo_7d"] = y7
+    return out
 
 
 def parse_receita_day(raw_day: str, ref_year: int):
