@@ -1229,11 +1229,16 @@ Responda com:
     return texto or erro
 
 
-def gerar_script(tema, dados_texto, contexto):
+def gerar_script(tema, dados_texto, contexto, feedback_script=''):
+    feedback_script = (feedback_script or '').strip()
+    feedback_secao = ''
+    if feedback_script:
+        feedback_secao = f'\nAJUSTES DO CRIADOR (transcrito por voz ou digitado): {feedback_script[:2500]}\n'
     prompt = f"""Roteirista do canal Guilherme Capovilla.
 
 TEMA: {tema}
 CONTEXTO: {contexto[:500]}
+{feedback_secao}
 
 Script completo:
 - Abertura emocional com gancho forte (0:00–0:45)
@@ -2143,8 +2148,9 @@ def _dispatch_action(action_data: dict) -> bool:
 
     if action == 'generate_script':
         tema = action_data.get('tema', '')
+        feedback_script = (action_data.get('feedback_script') or '').strip()
         with st.spinner('Gerando script...'):
-            script = gerar_script(tema, dados_raw or '', ctx)
+            script = gerar_script(tema, dados_raw or '', ctx, feedback_script=feedback_script)
             rp = st.session_state.get('_result_payload', {})
             rp['script'] = script
             st.session_state['_result_payload'] = rp

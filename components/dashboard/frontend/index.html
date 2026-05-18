@@ -633,6 +633,37 @@ main {
 }
 .link-modal-dialog textarea { min-height: 120px; resize: vertical; }
 .link-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.voice-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.voice-row .btn { padding: 7px 10px; font-size: 0.62rem; }
+.voice-row .btn[data-voice-stop] { display: none; }
+.voice-row.is-recording .btn[data-voice-start] { display: none; }
+.voice-row.is-recording .btn[data-voice-stop] { display: inline-block; }
+.voice-status {
+  font-size: 0.6rem;
+  color: var(--text-3);
+  letter-spacing: 0.03em;
+}
+.voice-status.error { color: #ff6b6b; }
+.voice-status.ok { color: var(--accent); }
+.script-feedback-area { margin-top: 10px; }
+.script-feedback-area textarea {
+  width: 100%;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.72rem;
+  color: var(--text);
+  font-family: var(--font);
+  resize: vertical;
+  min-height: 70px;
+  box-sizing: border-box;
+}
 
 .btn {
   background: var(--accent-dim);
@@ -1446,6 +1477,11 @@ main {
     <label class="link-modal-field" for="link-modal-sug">Sugestão da IA (opcional)</label>
     <select id="link-modal-sug"></select>
     <label class="link-modal-field" for="link-modal-notas">O que eu quis entregar com este vídeo</label>
+    <div class="voice-row" data-voice-row data-target="link-modal-notas">
+      <button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>
+      <button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>
+      <span class="voice-status" data-voice-status>Clique em iniciar para falar</span>
+    </div>
     <textarea id="link-modal-notas" placeholder="Contexto da ideia, ângulo emocional, o que funcionou na sua cabeça…"></textarea>
     <div class="link-modal-actions">
       <button type="button" class="btn" onclick="_submitLinkVideo()">Salvar notas</button>
@@ -1506,6 +1542,182 @@ function updateHeight() {
   var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, 2400);
   window._stHeight(h);
 }
+
+function _ensureChatIdeaVoiceRow() {
+  var modal = document.getElementById('modal-chat-ideia');
+  if (!modal) return;
+  var footer = modal.querySelector('.modal-footer');
+  if (!footer) return;
+  if (footer.querySelector('[data-chat-voice-row]')) return;
+
+  var targetEl = modal.querySelector('textarea, input[type="text"], input:not([type])');
+  if (!targetEl) return;
+  if (!targetEl.id) {
+    targetEl.id = 'chat-ideia-audio-target-' + Date.now().toString(36);
+  }
+
+  var row = document.createElement('div');
+  row.className = 'voice-row';
+  row.setAttribute('data-voice-row', '');
+  row.setAttribute('data-chat-voice-row', '1');
+  row.setAttribute('data-target', targetEl.id);
+  row.innerHTML = ''
+    + '<button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>'
+    + '<button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>'
+    + '<span class="voice-status" data-voice-status></span>';
+
+  footer.insertBefore(row, footer.firstChild);
+}
+
+function _wireChatIdeaVoice() {
+  if (window._chatIdeaVoiceWired) return;
+  window._chatIdeaVoiceWired = true;
+
+  function refresh() {
+    _ensureChatIdeaVoiceRow();
+    _VoiceNote.bindAll();
+  }
+
+  refresh();
+  try {
+    var mo = new MutationObserver(function () { refresh(); });
+    if (document.body) mo.observe(document.body, { childList: true, subtree: true });
+  } catch (e) {}
+}
+
+var _VoiceNote = (function () {
+  var RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var active = null;
+  var lock = false;
+
+  function _setStatus(row, text, kind) {
+    if (!row) return;
+    var status = row.querySelector('[data-voice-status]');
+    if (!status) return;
+    status.textContent = text || '';
+    status.classList.remove('error', 'ok');
+    if (kind) status.classList.add(kind);
+  }
+
+  function _appendText(targetEl, incoming) {
+    if (!targetEl || !incoming) return;
+    var prev = (targetEl.value || '').trim();
+    var nxt = String(incoming || '').trim();
+    if (!nxt) return;
+    targetEl.value = prev ? (prev + '\n' + nxt) : nxt;
+    targetEl.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function _stopInternal(message, kind) {
+    if (active && active.row) active.row.classList.remove('is-recording');
+    if (active && active.recognition) {
+      try { active.recognition.onresult = null; } catch (e) {}
+      try { active.recognition.onerror = null; } catch (e) {}
+      try { active.recognition.onend = null; } catch (e) {}
+      try { active.recognition.stop(); } catch (e) {}
+    }
+    if (active && active.row) _setStatus(active.row, message || 'Transcrição finalizada', kind || 'ok');
+    active = null;
+    lock = false;
+  }
+
+  function _start(row) {
+    if (!row || lock) return;
+    if (!RecognitionCtor) {
+      _setStatus(row, 'Navegador sem suporte à transcrição por voz', 'error');
+      return;
+    }
+    var targetId = row.getAttribute('data-target');
+    var targetEl = document.getElementById(targetId || '');
+    if (!targetEl) {
+      _setStatus(row, 'Campo de destino não encontrado', 'error');
+      return;
+    }
+    if (active && active.row && active.row !== row) {
+      _stopInternal('Transcrição anterior interrompida', 'ok');
+    }
+    lock = true;
+    var recognition = new RecognitionCtor();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    var finalBuffer = '';
+    active = { row: row, recognition: recognition };
+    row.classList.add('is-recording');
+    _setStatus(row, 'Ouvindo... clique em parar quando terminar', 'ok');
+
+    recognition.onresult = function (event) {
+      var interim = '';
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var piece = event.results[i][0] ? event.results[i][0].transcript : '';
+        if (event.results[i].isFinal) {
+          finalBuffer += (piece || '').trim() + ' ';
+        } else {
+          interim += piece || '';
+        }
+      }
+      var preview = (finalBuffer + interim).trim();
+      if (preview) {
+        _setStatus(row, 'Transcrevendo: "' + preview.slice(0, 80) + (preview.length > 80 ? '...' : '') + '"', 'ok');
+      }
+    };
+
+    recognition.onerror = function (event) {
+      var code = (event && event.error) ? String(event.error) : 'erro_desconhecido';
+      var msg = code === 'not-allowed'
+        ? 'Permissão de microfone negada'
+        : 'Erro na captura de voz: ' + code;
+      _stopInternal(msg, 'error');
+    };
+
+    recognition.onend = function () {
+      if (!active || active.recognition !== recognition) return;
+      var text = finalBuffer.trim();
+      if (text) {
+        _appendText(targetEl, text);
+        _stopInternal('Transcrição inserida no campo', 'ok');
+      } else {
+        _stopInternal('Nenhuma fala detectada', 'error');
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      _stopInternal('Não foi possível iniciar o microfone', 'error');
+    }
+  }
+
+  function _stop(row) {
+    if (!active || !active.recognition) return;
+    if (row && active.row && row !== active.row) return;
+    try { active.recognition.stop(); } catch (e) {}
+  }
+
+  function bindAll() {
+    var rows = document.querySelectorAll('[data-voice-row]');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (row._voiceBound) continue;
+      row._voiceBound = true;
+      var bStart = row.querySelector('[data-voice-start]');
+      var bStop = row.querySelector('[data-voice-stop]');
+      if (bStart) {
+        bStart.addEventListener('click', function (evt) {
+          _start(evt.currentTarget.closest('[data-voice-row]'));
+        });
+      }
+      if (bStop) {
+        bStop.addEventListener('click', function (evt) {
+          _stop(evt.currentTarget.closest('[data-voice-row]'));
+        });
+      }
+      if (!RecognitionCtor) _setStatus(row, 'Navegador sem suporte à transcrição por voz', 'error');
+    }
+  }
+
+  return { bindAll: bindAll, stop: _stop };
+}());
 
 function _renderLinkFeedback(rp) {
   var el = document.getElementById('link-feedback-toast');
@@ -1619,6 +1831,8 @@ function _renderAll() {
   renderProximosConteudos(fila);
   renderKanban(fila);
   renderPendingBox(pends, rp);
+  _wireChatIdeaVoice();
+  _VoiceNote.bindAll();
   renderMetas(metas, hlinks, d);
   renderConfig(cfg, concs);
   _wireAddToQueue();
@@ -1929,6 +2143,18 @@ function renderPendingBox(pends, rp) {
       +_useSugCard(rp.id1||'',1)+_useSugCard(rp.id2||'',2)+'</div>'
       +'<div style="border-top:1px solid var(--border);padding-top:12px;"><div style="font-size:0.6rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Gerar script</div>'
       +'<textarea id="script-tema" placeholder="Cole o título aprovado..." style="width:100%;background:var(--surface-3);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:0.72rem;color:var(--text);font-family:var(--font);resize:vertical;min-height:60px;"></textarea>'
+      +'<div class="voice-row" data-voice-row data-target="script-tema">'
+      +'<button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>'
+      +'<button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>'
+      +'<span class="voice-status" data-voice-status>Fale o tema para gerar o script</span></div>'
+      +'<div class="script-feedback-area">'
+      +'<div style="font-size:0.6rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Ajustes desejados no script (opcional)</div>'
+      +'<textarea id="script-feedback" placeholder="Ex.: reforçar comparação com uso real, reduzir parte técnica, trazer mais tom pessoal..."></textarea>'
+      +'<div class="voice-row" data-voice-row data-target="script-feedback">'
+      +'<button type="button" class="btn btn-ghost" data-voice-start>Microfone: iniciar</button>'
+      +'<button type="button" class="btn btn-ghost" data-voice-stop>Microfone: parar</button>'
+      +'<span class="voice-status" data-voice-status>Fale os ajustes que você quer no roteiro</span></div>'
+      +'</div>'
       +'<button class="btn" style="width:100%;margin-top:6px;" onclick="_genScript()">📝 Gerar script completo</button>'
       +(rp.script?'<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;"><div class="box-title">Script completo</div><div style="white-space:pre-wrap;font-size:0.7rem;color:var(--text-2);line-height:1.6;">'+esc(rp.script)+'</div></div>':'')
       +'</div>';
@@ -1960,8 +2186,11 @@ function _useSug(sugId, num) {
 
 function _genScript() {
   var tema=((document.getElementById('script-tema')||{}).value||'').trim();
+  var feedback=((document.getElementById('script-feedback')||{}).value||'').trim();
   if(!tema){alert('Cole o título antes de gerar.');return;}
-  window._stAction('generate_script',{tema:tema});
+  var payload={tema:tema};
+  if(feedback){ payload.feedback_script=feedback.slice(0, 2500); }
+  window._stAction('generate_script',payload);
 }
 
 function _parseFilaDate(raw) {
@@ -2100,6 +2329,7 @@ function _closeLinkModal() {
   var m=document.getElementById('link-video-modal'); if(!m) return;
   m.classList.remove('is-open');
   m.setAttribute('aria-hidden','true');
+  _VoiceNote.stop();
 }
 
 function _submitLinkVideo() {
