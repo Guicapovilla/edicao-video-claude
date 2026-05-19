@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, date as _date
+from datetime import datetime, timedelta, date as _date, date
 
 
 def _q2_start(hoje):
@@ -127,6 +127,47 @@ def _linhas_resumo_7_vs_7(analytics, cid, usd: float, hoje: _date):
     ]
 
 
+def coletar_channel_metricas_quarter(analytics, channel_id: str, usd: float) -> list[dict]:
+    """Coleta receita e views diários desde o início do quarter corrente até hoje-2d.
+
+    Usa -2d como end para garantir dados consolidados (YouTube Analytics tem ~2d de delay).
+    Retorna lista de { data: str, receita_brl: float, views: int }.
+    Nota: estimatedRevenue inclui anúncios, YouTube Premium, Super Chat e membros.
+    Shopping affiliate (Programa de afiliados) pode ou não estar incluído dependendo
+    da versão da API — confirme no YouTube Studio em Analytics > Receita > Tudo.
+    """
+    hoje = date.today()
+    end  = hoje - timedelta(days=2)
+
+    q_month  = ((hoje.month - 1) // 3) * 3 + 1
+    q_start  = date(hoje.year, q_month, 1)
+
+    if end < q_start:
+        return []
+
+    try:
+        rows = analytics.reports().query(
+            ids=f'channel=={channel_id}',
+            startDate=str(q_start),
+            endDate=str(end),
+            metrics='estimatedRevenue,views',
+            dimensions='day',
+            sort='day',
+        ).execute().get('rows') or []
+    except Exception as e:
+        print(f'  [WARN] coletar_channel_metricas_quarter falhou: {e}')
+        return []
+
+    return [
+        {
+            'data':        str(r[0]),
+            'receita_brl': round(float(r[1] or 0) * usd, 2),
+            'views':       int(r[2] or 0),
+        }
+        for r in rows
+    ]
+
+
 def coletar_canal(youtube, analytics, usd):
     hoje  = datetime.now().date()
     start = hoje - timedelta(days=28)
@@ -211,6 +252,15 @@ def coletar_canal(youtube, analytics, usd):
         top_receita.append(f"{i}. {titulo} | BRL: R${brl:.2f} | Views: {views} | RPM: R${rpm:.2f}")
         receita_por_video[r[0]] = {'titulo': titulo, 'brl': brl, 'views': views, 'rpm': rpm}
 
+    # Dados diários estruturados para channel_metricas (retornados junto)
+    channel_daily = []
+    for r in (an.get('rows') or []):
+        channel_daily.append({
+            'data':        str(r[0]),
+            'receita_brl': round(float(r[4] or 0) * usd, 2),
+            'views':       int(r[1] or 0),
+        })
+
     linhas = [
         '=== DADOS DO CANAL ===',
         f"Atualizado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
@@ -236,4 +286,4 @@ def coletar_canal(youtube, analytics, usd):
         '=== RECEITA DIARIA (ultimos 28 dias) ===',
         *dias,
     ]
-    return '\n'.join(linhas), receita_por_video, receita_q2_brl
+    return '\n'.join(linhas), receita_por_video, receita_q2_brl, channel_daily

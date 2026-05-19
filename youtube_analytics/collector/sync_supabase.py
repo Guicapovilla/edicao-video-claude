@@ -441,6 +441,25 @@ def sync_metas_atual(metricas: dict):
 # Sync: info do canal (avatar, nome, inscritos)
 # ============================================================
 
+def sync_channel_metricas(registros: list[dict]):
+    """Upsert de métricas diárias do canal na tabela channel_metricas.
+
+    `registros` deve ser lista de { data: str (YYYY-MM-DD), receita_brl: float, views: int }.
+    Faz upsert por `data` — re-rodar é seguro (idempotente).
+    """
+    if not registros:
+        return
+    try:
+        upsert('channel_metricas', registros, on_conflict='data')
+        total_receita = sum(r.get('receita_brl', 0) for r in registros)
+        print(
+            f"  🗄️ Supabase channel_metricas: {len(registros)} dias · "
+            f"total R${total_receita:.2f}"
+        )
+    except Exception as e:
+        _log_erro("sync_channel_metricas", e)
+
+
 def sync_canal_info(channel_id: str, snippet: dict, inscritos: int = 0):
     """Salva avatar_url e info básica do canal na tabela `canal`."""
     if not channel_id or not snippet:
